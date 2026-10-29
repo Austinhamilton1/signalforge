@@ -1,2 +1,2 @@
-# signalforge
-SingalForge: A real-time, FPGA-accelerated signal processing engine with asynchronous control and Linux audio/video streaming.
+# SignalForge
+A real-time, FPGA-accelerated signal processing engine with asynchronous control and Linux audio/video streaming.
