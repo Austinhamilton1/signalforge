@@ -26,5 +26,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 # =========================================================
+# Systems Dependencies
+# =========================================================
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
+
+# =========================================================
 # Subdirectories
 # =========================================================
