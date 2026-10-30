@@ -44,25 +44,7 @@ public:
             throw std::bad_array_new_length();
         }
 
-        m_storage = static_cast<char *>(
-            ::operator new(
-                m_capacity * sizeof(T),
-                std::align_val_t{alignof(T)}
-            )
-        );
-
-        T *objects = reinterpret_cast<T *>(m_storage);
-
-        for(size_t i = 0; i < m_capacity; i++) {
-            std::construct_at(objects + i);
-        }
-    }
-
-    ~ZeroCopySPSC() {
-        ::operator delete(
-            m_storage,
-            std::align_val_t{alignof(T)}
-        );
+        m_storage = std::make_unique<T[]>(capacity);
     }
 
     ZeroCopySPSC(const ZeroCopySPSC&) = delete;
@@ -295,9 +277,7 @@ public:
     
 private:
     const size_t m_capacity;
-
-    // Using aligned storage prevents premature object construction.
-    char *m_storage = nullptr;
+    std::unique_ptr<T[]> m_storage = nullptr;
 
     // Use cache-alignment to avoid false sharing between indexes
     alignas(std::hardware_destructive_interference_size) 
@@ -314,8 +294,6 @@ private:
             index & (m_capacity - 1)
         );
 
-        return reinterpret_cast<T *>(
-            m_storage + i * sizeof(T)
-        );
+        return m_storage.get() + i;
     }
 };
