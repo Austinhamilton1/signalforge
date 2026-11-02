@@ -5,7 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "jitter.hpp"
+#include "data/jitter.hpp"
 
 using namespace std::chrono_literals;
 
@@ -22,6 +22,7 @@ namespace {
     Packet make_packet(std::uint32_t sequence, float value) {
         Packet packet{};
         packet.seq = sequence;
+        packet.timestamp = 0;
 
         for (auto& sample : packet.samples) {
             sample = value;

@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "zero_copy_spsc.hpp"
+#include "data/zero_copy_spsc.hpp"
 
 #include <atomic>
 #include <cstdint>

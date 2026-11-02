@@ -73,6 +73,18 @@ namespace sf {
         jitter_buf(jitter_buf&&) = delete;
         jitter_buf& operator=(jitter_buf&&) = delete;
 
+        /*
+         * Insert a packet into the jitter buffer. The packet's sequence number
+         * must be within the valid window of the buffer, or it will be rejected.
+         * Duplicate packets are rejected, and the first copy of a packet is
+         * preserved. If the buffer is not yet playing, the startup anchor may
+         * be moved backwards to accommodate an earlier packet, provided that all
+         * existing packets still fit within the valid window.
+         * 
+         * @param packet The audio packet to insert.
+         * 
+         * @return An insert_result_t indicating the outcome of the insertion.
+         */
         insert_result_t insert(const packet_t& packet) {
             const uint32_t sequence = packet.seq;
 
@@ -149,6 +161,15 @@ namespace sf {
             return insert_result_t::accepted;
         }
 
+        /*
+         * Play out the next packet from the jitter buffer. If the buffer is not yet playing, it will enter the playing state once enough consecutive
+         * packets have been received to satisfy the startup threshold. If the next packet is not yet due for playout, silence will be
+         * 
+         * @param now The current time point, used to determine if the next packet is due for playout.
+         * @param output A reference to an array where the playout samples will be written.
+         * 
+         * @return A playout_result_t indicating the outcome of the playout operation.
+         */
         playout_result_t playout(time_point_t now, std::array<float, Frames>& output) {
             if(!m_playing) {
                 if(!has_startup_run()) {
@@ -203,6 +224,9 @@ namespace sf {
             return result;
         }
 
+        /*
+         * Returns the time point when the next packet is due for playout, or std::nullopt if the buffer is not yet playing.
+         */
         [[nodiscard]]
         std::optional<time_point_t> next_deadline() const noexcept {
             if(!m_playing) {
@@ -212,21 +236,33 @@ namespace sf {
             return m_next_deadline;
         }
 
+        /*
+         * Returns true if the jitter buffer is currently playing, false otherwise.
+         */
         [[nodiscard]]
         bool playing() const noexcept {
             return m_playing;
         }
 
+        /*
+         * Returns the number of packets currently buffered in the jitter buffer.
+         */
         [[nodiscard]]
         size_t buffered_packets() const noexcept {
             return m_buffered_packets;
         }
 
+        /*
+         * Returns the sequence number of the next expected packet for playout.
+         */
         [[nodiscard]]
         uint32_t expected_sequence() const noexcept {
             return m_expected_sequence;
         }
 
+        /*
+         * Resets the jitter buffer to its initial state.
+         */
         void reset() {
             for(slot_t& slot : m_slots) {
                 slot.occupied = false;
