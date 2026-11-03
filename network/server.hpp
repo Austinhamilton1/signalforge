@@ -49,7 +49,7 @@ namespace sf {
             m_server_addr.sin_addr.s_addr = INADDR_ANY;
             m_server_addr.sin_port = htons(port);
 
-            if(bind(m_socket_fd, (const struct sockaddr*)&m_server_addr, sizeof(m_server_addr)) < 0) {
+            if(bind(m_socket_fd, (const struct sockaddr *)&m_server_addr, sizeof(m_server_addr)) < 0) {
                 close(m_socket_fd);
                 m_socket_fd = -1;
                 return -1;
