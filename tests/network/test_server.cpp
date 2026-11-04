@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>

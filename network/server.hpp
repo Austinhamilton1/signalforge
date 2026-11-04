@@ -3,7 +3,6 @@
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
-#include <iostream>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>

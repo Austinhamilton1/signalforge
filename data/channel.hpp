@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cerrno>
 #include <cstdint>
+#include <errno.h>
 #include <system_error>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
