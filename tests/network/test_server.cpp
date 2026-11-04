@@ -17,6 +17,7 @@
 namespace {
     constexpr int port = 8080;
     constexpr size_t num_packets = 1024;
+    constexpr int timeout_ms = 2000;
 
     struct Recorder {
     public:
@@ -61,9 +62,7 @@ TEST_CASE("Server can be interrupted", "[server] [stop]") {
 
     std::thread stop([&] {
         // Wait for the server to start
-        while(!server.running()) {
-            std::this_thread::yield();
-        }
+        server.wait();
 
         server.stop();
     });
@@ -97,9 +96,7 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
 
     std::thread producer([&] {
         // Wait for the server to start running.
-        while(!server.running()) {
-            std::this_thread::yield();
-        }
+        server.wait();
 
         for(size_t i = 0; i < num_packets; i++) {
             sf::audio_packet_t packet;
@@ -118,9 +115,7 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
 
     std::thread consumer([&] {
         // Wait for the server to start running.
-        while(!server.running()) {
-            std::this_thread::yield();
-        }
+        server.wait();
 
         auto start = std::chrono::steady_clock::now();
         auto end = start;
@@ -129,29 +124,12 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         size_t received = 0;
 
-        while(duration < 2000 && received < num_packets) {
-            struct epoll_event ev;
-            // Time out after 2000 ms to match the consumer loop timeout.
-            int nfds = epoll_wait(epoll_fd, &ev, 1, 2000);
-            if(nfds < 0) {
-                if(errno == EINTR) {
-                    continue;
-                }
+        while(duration < timeout_ms && received < num_packets) {
+            if(pipe.wait(timeout_ms, [&](sf::audio_packet_t *packet) {
+                recorder.record(packet->header.seq);
+                received++;
+            }) < 0) {
                 break;
-            }
-
-            for(int n = 0; n < nfds; n++) {
-                if(ev.data.fd == pipe.fd()) {
-                    uint64_t signals;
-                    read(pipe.fd(), &signals, sizeof(signals));
-
-                    while(auto *packet = pipe.buffer().read()) {
-                        recorder.record(packet->header.seq);
-                        pipe.buffer().release();
-
-                        received++;
-                    }
-                }
             }
 
             end = std::chrono::steady_clock::now();

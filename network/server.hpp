@@ -8,6 +8,7 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -211,19 +212,9 @@ namespace sf {
 
                                 if(sf::serializer::deserialize(packet, m_recv_buffer.data(), static_cast<size_t>(recv_len)) > 0) {
                                     // Insert the packet into the pipe
-                                    if(auto *slot = pipe.buffer().write()) {
+                                    pipe.publish([packet](sf::audio_packet_t *slot) {
                                         *slot = packet;
-                                        if(pipe.buffer().commit()) {
-                                            // Signal the event consumer that a new packet is available
-                                            uint64_t signal = 1;
-
-                                            write(
-                                                pipe.fd(),
-                                                &signal,
-                                                sizeof(signal)
-                                            );
-                                        }
-                                    }
+                                    });
                                 }
                             }
                         }
@@ -232,6 +223,9 @@ namespace sf {
             }
         }
 
+        /*
+         * Check if the server is running.
+         */
         bool running() const noexcept {
             return m_running.load(std::memory_order_relaxed);
         }
@@ -245,6 +239,16 @@ namespace sf {
             uint64_t signal = 1;
 
             write(m_stop_fd, &signal, sizeof(signal));
+        }
+
+        /*
+         * Pause the calling thread until the server is up
+         * and running.
+         */
+        void wait() const noexcept {
+            while(!running()) {
+                std::this_thread::yield();
+            }
         }
 
     private:
