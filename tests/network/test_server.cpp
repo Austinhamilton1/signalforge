@@ -81,15 +81,6 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
 
     sf::channel<sf::audio_packet_t> pipe(1024);
 
-    int epoll_fd = epoll_create1(0);
-    REQUIRE(epoll_fd >= 0);
-
-    struct epoll_event pipe_ev;
-    pipe_ev.events = EPOLLIN;
-    pipe_ev.data.fd = pipe.fd();
-
-    REQUIRE(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, pipe.fd(), &pipe_ev) >= 0);
-
     std::thread serve([&] {
         server.listen(port, pipe);
     });
@@ -142,8 +133,6 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
     serve.join();
     producer.join();
     consumer.join();
-
-    close(epoll_fd);
 
     REQUIRE(recorder.check_count(1));
 }
