@@ -64,7 +64,10 @@ TEST_CASE("Serializer can handle maximum frame count", "[serializer] [serializat
     }
 
     uint8_t buffer[sf::detail::max_packet_size]{};
+    sf::serializer::serialize(buffer, original_packet, sizeof(buffer));
+    
     sf::audio_packet_t deserialized_packet{};
+    sf::serializer::deserialize(deserialized_packet, buffer, sizeof(buffer));
 
     REQUIRE(deserialized_packet.header.seq == original_packet.header.seq);
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);

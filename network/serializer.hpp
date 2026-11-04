@@ -57,11 +57,11 @@ namespace sf {
          * @param packet The audio packet to serialize.
          * @param buffer_size The size of the byte buffer.
          * 
-         * @return 0 on success, non-zero on failure.
+         * @return Number of bytes serialized.
          */
-        static int serialize(uint8_t* buffer, const audio_packet_t& packet, size_t buffer_size) {
+        static size_t serialize(uint8_t* buffer, const audio_packet_t& packet, size_t buffer_size) {
             if(packet.header.frame_count > detail::frames_per_packet) {
-                return -1; // Frame count exceeds maximum allowed.
+                return 0; // Frame count exceeds maximum allowed.
             }
 
             if(
@@ -71,7 +71,7 @@ namespace sf {
                 + sizeof(packet.header.flags) 
                 + packet.header.frame_count * sizeof(float)
             ) {
-                return -1; // Buffer size is insufficient.
+                return 0; // Buffer size is insufficient.
             }
             
             uint32_t seq = htonl(packet.header.seq);
@@ -89,7 +89,11 @@ namespace sf {
                 std::memcpy(buffer + sizeof(seq) + sizeof(timestamp) + sizeof(frame_count) + sizeof(flags) + i * sizeof(sample), &sample, sizeof(sample));
             }
 
-            return 0;
+            return sizeof(packet.header.seq)
+                + sizeof(packet.header.timestamp)
+                + sizeof(packet.header.frame_count)
+                + sizeof(packet.header.flags)
+                + packet.header.frame_count * sizeof(float);
         }
 
         /*
@@ -99,9 +103,9 @@ namespace sf {
          * @param buffer The byte buffer containing the serialized data.
          * @param buffer_size The size of the byte buffer.
          * 
-         * @return 0 on success, non-zero on failure.
+         * @return Size of resulting packet.
          */
-        static int deserialize(audio_packet_t& packet, const uint8_t* buffer, size_t buffer_size) {
+        static size_t deserialize(audio_packet_t& packet, const uint8_t* buffer, size_t buffer_size) {
             uint32_t seq;
             uint64_t timestamp;
             uint16_t frame_count;
@@ -113,7 +117,7 @@ namespace sf {
                 + sizeof(frame_count) 
                 + sizeof(flags)
             ) {
-                return -1; // Buffer size is insufficient.
+                return 0; // Buffer size is insufficient.
             }
 
             std::memcpy(&seq, buffer, sizeof(seq));
@@ -127,7 +131,7 @@ namespace sf {
             packet.header.flags = ntohs(flags);
 
             if(packet.header.frame_count > detail::frames_per_packet) {
-                return -1; // Frame count exceeds maximum allowed.
+                return 0; // Frame count exceeds maximum allowed.
             }
 
             if(
@@ -137,7 +141,7 @@ namespace sf {
                 sizeof(flags) + 
                 packet.header.frame_count * sizeof(float)
             ) {
-                return -1; // Buffer size is insufficient for the samples.
+                return 0; // Buffer size is insufficient for the samples.
             }
 
             for(size_t i = 0; i < packet.header.frame_count; i++) {
@@ -146,8 +150,11 @@ namespace sf {
                 packet.samples[i] = ntohf(sample);
             }
 
-            return 0;
-
+            return sizeof(packet.header.seq)
+                + sizeof(packet.header.timestamp)
+                + sizeof(packet.header.frame_count)
+                + sizeof(packet.header.flags)
+                + packet.header.frame_count * sizeof(float);
         }
     };
 }
