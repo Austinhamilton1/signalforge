@@ -1,7 +1,8 @@
 #pragma once
 
+#include <cerrno>
 #include <cstdint>
-#include <stdexcept>
+#include <system_error>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -15,11 +16,11 @@ namespace sf {
     public:
         explicit channel(size_t capacity) : m_buffer(capacity) {
             if((m_event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) < 0) {
-                throw std::runtime_error("Could not open event fd");
+                throw std::system_error(errno, std::generic_category(), "Failed to create eventfd");
             }
 
             if((m_epoll_fd = epoll_create1(0)) < 0) {
-                throw std::runtime_error("Could not open epoll fd");
+                throw std::system_error(errno, std::generic_category(), "Failed to create epoll");
             }
 
             struct epoll_event ev;
@@ -27,7 +28,7 @@ namespace sf {
             ev.data.fd = m_event_fd;
 
             if(epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_event_fd, &ev) < 0) {
-                throw std::runtime_error("Could not register event fd");
+                throw std::system_error(errno, std::generic_category(), "Failed to register eventfd");
             }
         }
 
