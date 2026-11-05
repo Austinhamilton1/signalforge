@@ -3,6 +3,7 @@
 #include "data/zero_copy_spsc.hpp"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <thread>
@@ -259,7 +260,7 @@ TEST_CASE("SPSC prevents block read reservation during block reservation", "[sps
     auto write_block = buffer.write_block(4);
     REQUIRE(write_block.size == 4);
 
-    for(size_t i = 0; i < 4; ++i) {
+    for(std::size_t i = 0; i < 4; ++i) {
         write_block.data[i] = static_cast<int>(i);
     }
 
@@ -297,7 +298,7 @@ TEST_CASE("SPSC prevents single read reservation during block reservation", "[sp
     auto write_block = buffer.write_block(4);
     REQUIRE(write_block.size == 4);
 
-    for(size_t i = 0; i < 4; ++i) {
+    for(std::size_t i = 0; i < 4; ++i) {
         write_block.data[i] = static_cast<int>(i);
     }
 
@@ -359,7 +360,7 @@ TEST_CASE("SPSC writes and reads a block", "[spsc] [block]") {
     REQUIRE(write_block);
     REQUIRE(write_block.size == 8);
 
-    for(size_t i = 0; i < write_block.size; ++i) {
+    for(std::size_t i = 0; i < write_block.size; ++i) {
         write_block.data[i] = static_cast<int>(i * 10);
     }
 
@@ -370,7 +371,7 @@ TEST_CASE("SPSC writes and reads a block", "[spsc] [block]") {
     REQUIRE(read_block);
     REQUIRE(read_block.size == 8);
 
-    for(size_t i = 0; i < read_block.size; ++i) {
+    for(std::size_t i = 0; i < read_block.size; ++i) {
         REQUIRE(read_block.data[i] == static_cast<int>(i * 10));
     }
 
@@ -417,7 +418,7 @@ TEST_CASE("SPSC limits blocks to contiguous memory", "[spsc] [block]") {
     REQUIRE(second);
     REQUIRE(second.size == 6);
 
-    for(size_t i = 0; i < second.size; ++i) {
+    for(std::size_t i = 0; i < second.size; ++i) {
         second.data[i] = static_cast<int>(200 + i);
     }
 
@@ -435,7 +436,7 @@ TEST_CASE("SPSC limits blocks to contiguous memory", "[spsc] [block]") {
 
     REQUIRE(read_second.size == 6);
 
-    for(size_t i = 0; i < 6; ++i) {
+    for(std::size_t i = 0; i < 6; ++i) {
         REQUIRE(read_second.data[i] == static_cast<int>(200 + i));
     }
 
@@ -465,7 +466,7 @@ TEST_CASE("SPSC rejects incorrect block release sizes", "[spsc] [block]") {
 
     REQUIRE(write_block.size == 4);
 
-    for(size_t i = 0; i < 4; ++i) {
+    for(std::size_t i = 0; i < 4; ++i) {
         write_block.data[i] = static_cast<int>(i);
     }
 

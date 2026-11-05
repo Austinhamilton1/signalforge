@@ -9,12 +9,12 @@
 
 namespace {
     constexpr uint32_t sample_rate = 48'000;
-    constexpr size_t sample_size = 240;
+    constexpr std::size_t sample_size = 240;
     constexpr float frequency = 1000.0f;
 }
 
 int main() {
-    sf::audio_sink<sample_size> sink(2048);
+    sf::audio_sink<sample_size> sink;
 
     std::cout << "Opening audio sink...\n";
     if(sink.open(sample_rate) < 0) {
@@ -30,9 +30,9 @@ int main() {
         auto deadline = std::chrono::steady_clock::now();
 
         // 1000 * 240 at 48 kHz should produce 5 seconds of audio
-        for(size_t i = 0; i < 1000; i++) {
+        for(std::size_t i = 0; i < 1000; i++) {
             std::array<float, sample_size> samples;
-            for(size_t j = 0; j < sample_size; j++) {
+            for(std::size_t j = 0; j < sample_size; j++) {
                 samples[j] = 0.15f * std::sin(phase);
                 phase += phase_step;
 

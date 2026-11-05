@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 namespace sf {
-    template<size_t Frames, size_t Capacity>
+    template<std::size_t Frames, std::size_t Capacity>
     class jitter_buf {
         static_assert(Frames > 0);
         static_assert(Capacity > 0);
@@ -45,7 +45,7 @@ namespace sf {
             concealed
         };
 
-        explicit jitter_buf(uint32_t sample_rate, size_t startup_packets = 4)
+        explicit jitter_buf(uint32_t sample_rate, std::size_t startup_packets = 4)
             : m_startup_packets(startup_packets) 
         {
             if(sample_rate == 0) {
@@ -248,7 +248,7 @@ namespace sf {
          * Returns the number of packets currently buffered in the jitter buffer.
          */
         [[nodiscard]]
-        size_t buffered_packets() const noexcept {
+        std::size_t buffered_packets() const noexcept {
             return m_buffered_packets;
         }
 
@@ -307,7 +307,7 @@ namespace sf {
             }
 
             // Require startup_packets consecutive sequence numbers.
-            for(size_t i = 0; i < m_startup_packets; i++) {
+            for(std::size_t i = 0; i < m_startup_packets; i++) {
                 const uint32_t sequence =
                     m_base_sequence + static_cast<uint32_t>(i);
 
@@ -336,7 +336,7 @@ namespace sf {
 
         std::array<slot_t, Capacity> m_slots{};
 
-        const size_t m_startup_packets;
+        const std::size_t m_startup_packets;
         duration_t m_packet_period{};
 
         time_point_t m_next_deadline{};
@@ -344,7 +344,7 @@ namespace sf {
         uint32_t m_base_sequence = 0;
         uint32_t m_expected_sequence = 0;
 
-        size_t m_buffered_packets = 0;
+        std::size_t m_buffered_packets = 0;
     
         bool m_have_base = false;
         bool m_playing = false;

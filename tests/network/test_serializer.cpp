@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <iostream>
+#include <cstddef>
 
 #include "network/serializer.hpp"
 
@@ -29,7 +29,7 @@ TEST_CASE("Serializer can serialize and deserialize an audio packet", "[serializ
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);
     REQUIRE(deserialized_packet.header.frame_count == original_packet.header.frame_count);
     REQUIRE(deserialized_packet.header.flags == original_packet.header.flags);
-    for (size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
+    for (std::size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
         REQUIRE(deserialized_packet.samples[i] == original_packet.samples[i]);
     }
 }
@@ -59,7 +59,7 @@ TEST_CASE("Serializer can handle maximum frame count", "[serializer] [serializat
     original_packet.header.timestamp = 987654321;
     original_packet.header.frame_count = sf::detail::frames_per_packet;
     original_packet.header.flags = 0xFF;
-    for (size_t i = 0; i < sf::detail::frames_per_packet; ++i) {
+    for (std::size_t i = 0; i < sf::detail::frames_per_packet; ++i) {
         original_packet.samples[i] = static_cast<float>(i);
     }
 
@@ -73,7 +73,7 @@ TEST_CASE("Serializer can handle maximum frame count", "[serializer] [serializat
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);
     REQUIRE(deserialized_packet.header.frame_count == original_packet.header.frame_count);
     REQUIRE(deserialized_packet.header.flags == original_packet.header.flags);
-    for (size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
+    for (std::size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
         REQUIRE(deserialized_packet.samples[i] == original_packet.samples[i]);
     }
 }
@@ -99,7 +99,7 @@ TEST_CASE("Serializer can handle negative sample values", "[serializer] [seriali
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);
     REQUIRE(deserialized_packet.header.frame_count == original_packet.header.frame_count);
     REQUIRE(deserialized_packet.header.flags == original_packet.header.flags);
-    for (size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
+    for (std::size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
         REQUIRE(deserialized_packet.samples[i] == original_packet.samples[i]);
     }
 }
@@ -125,7 +125,7 @@ TEST_CASE("Serializer can handle mixed positive and negative sample values", "[s
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);
     REQUIRE(deserialized_packet.header.frame_count == original_packet.header.frame_count);
     REQUIRE(deserialized_packet.header.flags == original_packet.header.flags);
-    for (size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
+    for (std::size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
         REQUIRE(deserialized_packet.samples[i] == original_packet.samples[i]);
     }
 }
@@ -151,7 +151,7 @@ TEST_CASE("Serializer can handle zero and maximum float values", "[serializer] [
     REQUIRE(deserialized_packet.header.timestamp == original_packet.header.timestamp);
     REQUIRE(deserialized_packet.header.frame_count == original_packet.header.frame_count);
     REQUIRE(deserialized_packet.header.flags == original_packet.header.flags);
-    for (size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
+    for (std::size_t i = 0; i < deserialized_packet.header.frame_count; ++i) {
         REQUIRE(deserialized_packet.samples[i] == original_packet.samples[i]);
     }
 }

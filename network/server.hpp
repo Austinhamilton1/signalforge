@@ -108,7 +108,7 @@ namespace sf {
         
             socklen_t len = sizeof(m_client_addr);
 
-            size_t packet_size = sf::serializer::serialize(m_send_buffer.data(), data, m_send_buffer.size());
+            std::size_t packet_size = sf::serializer::serialize(m_send_buffer.data(), data, m_send_buffer.size());
             if(packet_size == 0) {
                 return -1;
             }
@@ -221,7 +221,7 @@ namespace sf {
                             if(recv_len >= sizeof(sf::audio_packet_header_t)) {
                                 sf::audio_packet_t packet;
 
-                                if(sf::serializer::deserialize(packet, m_recv_buffer.data(), static_cast<size_t>(recv_len)) > 0) {
+                                if(sf::serializer::deserialize(packet, m_recv_buffer.data(), static_cast<std::size_t>(recv_len)) > 0) {
                                     // Insert the packet into the pipe
                                     pipe.publish([packet](sf::audio_packet_t *slot) {
                                         *slot = packet;

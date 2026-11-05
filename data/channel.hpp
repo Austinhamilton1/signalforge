@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <errno.h>
 #include <system_error>
@@ -14,7 +15,7 @@ namespace sf {
     template<typename T>
     struct channel {
     public:
-        explicit channel(size_t capacity) : m_buffer(capacity) {
+        explicit channel(std::size_t capacity) : m_buffer(capacity) {
             if((m_event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) < 0) {
                 throw std::system_error(errno, std::generic_category(), "Failed to create eventfd");
             }

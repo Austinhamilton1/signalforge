@@ -6,15 +6,15 @@
 namespace sf {
     namespace detail {
         // At 48K this translates to ~5ms of audio
-        constexpr size_t frames_per_packet = 240;
+        constexpr std::size_t frames_per_packet = 240;
 
-        constexpr size_t header_size = 
+        constexpr std::size_t header_size = 
             sizeof(uint32_t) + // seq
             sizeof(uint64_t) + // timestamp
             sizeof(uint16_t) + // frame_count
             sizeof(uint16_t);  // flags
 
-        constexpr size_t max_packet_size =
+        constexpr std::size_t max_packet_size =
             header_size + (frames_per_packet * sizeof(float));
     }
     

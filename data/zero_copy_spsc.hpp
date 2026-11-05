@@ -24,7 +24,7 @@ namespace sf {
         );
 
     public:
-        explicit zc_spsc(size_t capacity) : m_capacity(capacity) {
+        explicit zc_spsc(std::size_t capacity) : m_capacity(capacity) {
             if(
                 capacity == 0 ||
                 (capacity & (capacity - 1)) != 0
@@ -34,7 +34,7 @@ namespace sf {
                 );
             }
 
-            if(capacity > std::numeric_limits<size_t>::max() / sizeof(T)) {
+            if(capacity > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
                 throw std::bad_array_new_length();
             }
 
@@ -147,7 +147,7 @@ namespace sf {
         * 
         * @return The write block.
         */
-        block<T> write_block(size_t requested) noexcept {
+        block<T> write_block(std::size_t requested) noexcept {
             if(m_write_reserved != 0) {
                 return {}; // Outstanding write transaction.
             }
@@ -170,8 +170,8 @@ namespace sf {
             block<T> block;
             block.size = std::min({
                 requested,
-                static_cast<size_t>(contiguous),
-                static_cast<size_t>(available)
+                static_cast<std::size_t>(contiguous),
+                static_cast<std::size_t>(available)
             });
 
             if(block.size > 0) {
@@ -193,7 +193,7 @@ namespace sf {
         * 
         * @return The number of published data points (success = block_size, failure < block_size).
         */
-        size_t commit_block(size_t block_size) noexcept {
+        std::size_t commit_block(std::size_t block_size) noexcept {
             if(block_size == 0 || m_write_reserved != block_size || m_write_reservation != reservation_t::BLOCK) {
                 return 0; // Invalid commit size.
             }
@@ -218,7 +218,7 @@ namespace sf {
         * 
         * @return Pointer reference to the start of the block.
         */
-        block<T> read_block(size_t requested) noexcept {
+        block<T> read_block(std::size_t requested) noexcept {
             if(m_read_reserved != 0) {
                 return {}; // Outstanding read transaction.
             }
@@ -240,8 +240,8 @@ namespace sf {
             block<T> block;
             block.size = std::min({
                 requested,
-                static_cast<size_t>(contiguous),
-                static_cast<size_t>(used)
+                static_cast<std::size_t>(contiguous),
+                static_cast<std::size_t>(used)
             });
 
             if(block.size > 0) {
@@ -261,7 +261,7 @@ namespace sf {
         * 
         * @return The number of published data points (success = block_size, failure < block_size).
         */
-        size_t release_block(size_t block_size) noexcept {
+        std::size_t release_block(std::size_t block_size) noexcept {
             if(block_size == 0 || m_read_reserved != block_size || m_read_reservation != reservation_t::BLOCK) {
                 return 0; // Invalid release size.
             }
@@ -278,7 +278,7 @@ namespace sf {
         }
         
     private:
-        const size_t m_capacity;
+        const std::size_t m_capacity;
         std::unique_ptr<T[]> m_storage = nullptr;
 
         // Use cache-alignment to avoid false sharing between indexes
@@ -295,11 +295,11 @@ namespace sf {
         reservation_t m_write_reservation = reservation_t::NONE;
         reservation_t m_read_reservation = reservation_t::NONE;
 
-        size_t m_write_reserved = 0;
-        size_t m_read_reserved = 0;
+        std::size_t m_write_reserved = 0;
+        std::size_t m_read_reserved = 0;
 
         T *get_ptr(uint64_t index) {
-            const size_t i = static_cast<size_t>(
+            const std::size_t i = static_cast<std::size_t>(
                 index & (m_capacity - 1)
             );
 

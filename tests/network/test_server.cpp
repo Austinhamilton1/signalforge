@@ -2,11 +2,11 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <thread>
-#include <unistd.h>
 #include <unordered_map>
 
 #include "data/channel.hpp"
@@ -15,14 +15,14 @@
 
 namespace {
     constexpr int port = 8080;
-    constexpr size_t num_packets = 1024;
+    constexpr std::size_t num_packets = 1024;
     constexpr int timeout_ms = 2000;
 
     template<typename T>
     struct Recorder {
     public:
-        explicit Recorder(size_t max_n) {
-            for(size_t i = 0; i < max_n; i++) {
+        explicit Recorder(std::size_t max_n) {
+            for(std::size_t i = 0; i < max_n; i++) {
                 m_lookup[static_cast<T>(i)] = {0};
             }
         }
@@ -31,7 +31,7 @@ namespace {
             m_lookup[x].fetch_add(1, std::memory_order_relaxed);
         }
 
-        bool check_count(size_t n) {
+        bool check_count(std::size_t n) {
             for(const auto& it : m_lookup) {
                 if(it.second != n)
                     return false;
@@ -41,7 +41,7 @@ namespace {
         }
 
     private: 
-        std::unordered_map<T, std::atomic<size_t>> m_lookup;
+        std::unordered_map<T, std::atomic<std::size_t>> m_lookup;
     };
 }
 
@@ -90,14 +90,14 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
         // Wait for the server to start running.
         server.wait();
 
-        for(size_t i = 0; i < num_packets; i++) {
+        for(std::size_t i = 0; i < num_packets; i++) {
             sf::audio_packet_t packet;
             packet.header.seq = i;
             packet.header.timestamp = sf::detail::frames_per_packet * i;
             packet.header.frame_count = sf::detail::frames_per_packet;
             packet.header.flags = 0x1;
 
-            for(size_t j = 0; j < packet.header.frame_count; j++) {
+            for(std::size_t j = 0; j < packet.header.frame_count; j++) {
                 packet.samples[j] = static_cast<float>(j);
             }
 
@@ -114,12 +114,12 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
 
         // Ensure that the consumer loop stops after 2000 ms (timeout)
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        size_t received = 0;
+        std::size_t received = 0;
 
         while(duration < timeout_ms && received < num_packets) {
             if(pipe.wait(timeout_ms, [&](sf::audio_packet_t *packet) {
                 seq_recorder.record(packet->header.seq);
-                for(size_t i = 0; i < packet->header.frame_count; i++) {
+                for(std::size_t i = 0; i < packet->header.frame_count; i++) {
                    sample_recorder.record(packet->samples[i]); 
                 }
                 received++;

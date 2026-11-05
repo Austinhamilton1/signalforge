@@ -32,12 +32,12 @@ namespace {
 }
 
 namespace sf {
-    template<size_t Frames>
+    template<std::size_t Frames>
     class audio_sink {
         static_assert(Frames > 0);
 
     public:
-        audio_sink(size_t buffer_size = 1024) : m_samples(buffer_size) {}
+        audio_sink(std::size_t buffer_size = 2048) : m_samples(buffer_size) {}
         ~audio_sink() {
             close();
         }
@@ -180,7 +180,7 @@ namespace sf {
          * @param samples Data to be played by the sink.
          */
         void write(const std::array<float, Frames>& samples) noexcept {
-            for(size_t i = 0; i < samples.size(); i++) {
+            for(std::size_t i = 0; i < samples.size(); i++) {
                 auto *sample = m_samples.write();
                 if(!sample) {
                     m_overruns.fetch_add(1, std::memory_order_relaxed);
