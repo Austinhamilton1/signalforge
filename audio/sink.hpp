@@ -37,7 +37,7 @@ namespace sf {
         static_assert(Frames > 0);
 
     public:
-        audio_sink(std::size_t buffer_size = 2048) : m_samples(buffer_size) {}
+        audio_sink(std::size_t buffer_size = 4096) : m_samples(buffer_size) {}
         ~audio_sink() {
             close();
         }
