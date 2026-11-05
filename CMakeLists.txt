@@ -34,6 +34,7 @@ pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 # =========================================================
 # Subdirectories
 # =========================================================
+add_subdirectory(audio)
 add_subdirectory(data)
 add_subdirectory(network)
 

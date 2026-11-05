@@ -88,7 +88,17 @@ namespace sf {
             return 0;
         }
 
-        int send(const char *ip_address, int port, const audio_packet_t& data) {
+        /*
+         * Send a packet to a remote server. This call doesn't use any locks or 
+         * synchronization primitives, so only one thread should call this at a time.
+         *
+         * @param ip_address Address of the remote server.
+         * @param port Port that the remote server is listening on.
+         * @param data Audio packet to send to the remote server.
+         * 
+         * @return Number of bytes sent or -1 on failure.
+         */
+        int send(const char *ip_address, int port, const audio_packet_t& data) noexcept {
             /*
              * Set up the socket for asynchronous messaging.
              */
@@ -116,12 +126,14 @@ namespace sf {
         }
 
         /*
-         * Start the server's event loop to listen for incoming audio packets.
+         * Start the server's event loop to listen for incoming audio packets. This
+         * call doesn't use any locks or synchronization primitives, so only one thread
+         * should call this at a time.
          *
          * @param port Port to listen on.
          * @param pipe A reference to a channel to output data to.
          */
-        void listen(int port, channel<audio_packet_t>& pipe) {
+        void listen(int port, channel<audio_packet_t>& pipe) noexcept {
             /*
              * Set up and bind the socket for listening.
              */

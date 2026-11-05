@@ -18,16 +18,17 @@ namespace {
     constexpr size_t num_packets = 1024;
     constexpr int timeout_ms = 2000;
 
+    template<typename T>
     struct Recorder {
     public:
-        explicit Recorder(uint32_t max_seq) {
-            for(uint32_t i = 0; i < max_seq; i++) {
-                m_lookup[i] = {0};
+        explicit Recorder(size_t max_n) {
+            for(size_t i = 0; i < max_n; i++) {
+                m_lookup[static_cast<T>(i)] = {0};
             }
         }
 
-        void record(uint32_t seq) {
-            m_lookup[seq].fetch_add(1, std::memory_order_relaxed);
+        void record(T x) {
+            m_lookup[x].fetch_add(1, std::memory_order_relaxed);
         }
 
         bool check_count(size_t n) {
@@ -40,7 +41,7 @@ namespace {
         }
 
     private: 
-        std::unordered_map<uint32_t, std::atomic<size_t>> m_lookup;
+        std::unordered_map<T, std::atomic<size_t>> m_lookup;
     };
 }
 
@@ -75,7 +76,8 @@ TEST_CASE("Server can be interrupted", "[server] [stop]") {
 
 TEST_CASE("Server can send and receive data", "[server] [behavior]") {
     sf::server server;
-    Recorder recorder(static_cast<uint32_t>(num_packets));
+    Recorder<uint32_t> seq_recorder(num_packets);
+    Recorder<float> sample_recorder(sf::detail::frames_per_packet);
     REQUIRE(server.init() == 0);
 
     sf::channel<sf::audio_packet_t> pipe(1024);
@@ -116,7 +118,10 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
 
         while(duration < timeout_ms && received < num_packets) {
             if(pipe.wait(timeout_ms, [&](sf::audio_packet_t *packet) {
-                recorder.record(packet->header.seq);
+                seq_recorder.record(packet->header.seq);
+                for(size_t i = 0; i < packet->header.frame_count; i++) {
+                   sample_recorder.record(packet->samples[i]); 
+                }
                 received++;
             }) < 0) {
                 break;
@@ -133,5 +138,6 @@ TEST_CASE("Server can send and receive data", "[server] [behavior]") {
     producer.join();
     consumer.join();
 
-    REQUIRE(recorder.check_count(1));
+    REQUIRE(seq_recorder.check_count(1));
+    REQUIRE(sample_recorder.check_count(num_packets));
 }
