@@ -1,8 +1,17 @@
-add_executable(test_audio
-    test_audio.cpp
+add_executable(test_sink
+    test_sink.cpp
 )
 
-target_link_libraries(test_audio
+add_executable(test_capture
+    test_capture.cpp
+)
+
+target_link_libraries(test_sink
+PRIVATE
+    sf_audio
+)
+
+target_link_libraries(test_capture
 PRIVATE
     sf_audio
 )

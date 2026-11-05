@@ -52,9 +52,5 @@ int main() {
     std::cout << "Closing audio sink...\n";
     sink.close();
     
-    std::cout << "Overruns: " << sink.overruns() << std::endl;
-    std::cout << "Underrun frames: " << sink.underrun_frames() << std::endl;
-    std::cout << "Underruns: " << sink.underruns() << std::endl;
-
     return 0;
 }

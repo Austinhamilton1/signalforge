@@ -9,7 +9,6 @@
 #include <pipewire-0.3/pipewire/pipewire.h>
 
 #include <pipewire-0.3/pipewire/keys.h>
-#include <pipewire-0.3/pipewire/log.h>
 #include <pipewire-0.3/pipewire/main-loop.h>
 #include <pipewire-0.3/pipewire/port.h>
 #include <pipewire-0.3/pipewire/properties.h>
@@ -78,7 +77,7 @@ namespace sf {
 
             m_stream = pw_stream_new_simple(
                 pw_main_loop_get_loop(m_loop),
-                "audio-src",
+                "SignalForge-Audio-Playback",
                 pw_properties_new(
                     PW_KEY_MEDIA_TYPE, "Audio",
                     PW_KEY_MEDIA_CATEGORY, "Playback",
@@ -183,7 +182,6 @@ namespace sf {
             for(std::size_t i = 0; i < samples.size(); i++) {
                 auto *sample = m_samples.write();
                 if(!sample) {
-                    m_overruns.fetch_add(1, std::memory_order_relaxed);
                     continue;
                 }
 
@@ -191,18 +189,6 @@ namespace sf {
                 m_samples.commit();
                 m_sample_count.fetch_add(1, std::memory_order_relaxed);
             }
-        }
-
-        uint64_t underruns() const noexcept {
-            return m_underruns.load(std::memory_order_relaxed);
-        }
-
-        uint64_t underrun_frames() const noexcept {
-            return m_underrun_frames.load(std::memory_order_relaxed);
-        }
-
-        uint64_t overruns() const noexcept {
-            return m_overruns.load(std::memory_order_relaxed);
         }
 
     private:
@@ -227,7 +213,6 @@ namespace sf {
             float *dst;
 
             if((b = pw_stream_dequeue_buffer(m_stream)) == NULL) {
-                pw_log_warn("out of buffers: %m");
                 return;
             }
 
@@ -261,11 +246,6 @@ namespace sf {
                 // Fill missing data with silence
                 int missing_samples = n_frames - n_samples;
                 if(missing_samples > 0) {
-                    m_underruns.fetch_add(1, std::memory_order_relaxed);
-                    m_underrun_frames.fetch_add(
-                        missing_samples,
-                        std::memory_order_relaxed
-                    );
                     std::fill(dst, dst + missing_samples, 0.0f);
                 }
             }
@@ -287,10 +267,6 @@ namespace sf {
         std::atomic<bool> m_open{false};
 
         std::atomic<uint64_t> m_sample_count{0};
-
-        std::atomic<uint64_t> m_underruns{0};
-        std::atomic<uint64_t> m_overruns{0};
-        std::atomic<uint64_t> m_underrun_frames{0};
 
         std::thread m_loop_thread;
     };
