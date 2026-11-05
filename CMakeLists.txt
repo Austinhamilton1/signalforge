@@ -26,22 +26,30 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 # =========================================================
-# Systems Dependencies
-# =========================================================
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
-
-# =========================================================
 # Subdirectories
 # =========================================================
 if(NOT DEFINED PLATFORM)
     message(STATUS "PLATFORM not set, nothing to build")
 elseif(PLATFORM STREQUAL "host")
     message(STATUS "PLATFORM set to 'host': building host files")
+
+    # =====================================================
+    # System Dependencies
+    # =====================================================
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
+
+    # =====================================================
+    # Host Directories
+    # =====================================================
     add_subdirectory(shared)
     add_subdirectory(host)
 elseif(PLATFORM STREQUAL "kria")
     message(STATUS "PLATFORM set to 'kria': building kria files")
+
+    # =====================================================
+    # Device Directories
+    # =====================================================
     add_subdirectory(shared)
     add_subdirectory(kria)
 else()
