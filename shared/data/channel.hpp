@@ -80,7 +80,7 @@ namespace sf {
                     // Slot committed, signal to the event file that there are 
                     // new items in the buffer.
                     uint64_t signal = 1;
-                    write(m_event_fd, &signal, sizeof(signal));
+                    ssize_t result = write(m_event_fd, &signal, sizeof(signal));
                     return 0;
                 }
             }
@@ -113,7 +113,7 @@ namespace sf {
             if(m_event.data.fd == m_event_fd) {
                 // Consume all the signals in the event file.
                 uint64_t signals;
-                read(m_event_fd, &signals, sizeof(signals));
+                ssize_t result = read(m_event_fd, &signals, sizeof(signals));
 
                 // Consume all available slots in the buffer.
                 while(auto *slot = m_buffer.read()) {

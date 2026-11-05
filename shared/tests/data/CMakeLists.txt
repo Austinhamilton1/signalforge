@@ -13,5 +13,5 @@ include(Catch)
 
 catch_discover_tests(test_data
 PROPERTIES
-    LABELS "signalforge data"
+    LABELS "signalforge host kria shared data"
 )

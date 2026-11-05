@@ -189,7 +189,7 @@ namespace sf {
                 for(int n = 0; n < nfds; n++) {
                     if(m_events[n].data.fd == m_stop_fd) {
                         uint64_t signal;
-                        read(m_stop_fd, &signal, sizeof(signal));
+                        ssize_t result = read(m_stop_fd, &signal, sizeof(signal));
 
                         m_running.store(false, std::memory_order_relaxed);
                         break;
@@ -249,7 +249,7 @@ namespace sf {
 
             uint64_t signal = 1;
 
-            write(m_stop_fd, &signal, sizeof(signal));
+            ssize_t result = write(m_stop_fd, &signal, sizeof(signal));
         }
 
         /*

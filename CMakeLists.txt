@@ -34,11 +34,16 @@ pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 # =========================================================
 # Subdirectories
 # =========================================================
-add_subdirectory(audio)
-add_subdirectory(data)
-add_subdirectory(network)
-
-# =========================================================
-# Tests
-# =========================================================
-add_subdirectory(tests)
+if(NOT DEFINED PLATFORM)
+    message(STATUS "PLATFORM not set, nothing to build")
+elseif(PLATFORM STREQUAL "host")
+    message(STATUS "PLATFORM set to 'host': building host files")
+    add_subdirectory(shared)
+    add_subdirectory(host)
+elseif(PLATFORM STREQUAL "kria")
+    message(STATUS "PLATFORM set to 'kria': building kria files")
+    add_subdirectory(shared)
+    add_subdirectory(kria)
+else()
+    message(STATUS "Unknown PLATFORM: ${PLATFORM}")
+endif()
