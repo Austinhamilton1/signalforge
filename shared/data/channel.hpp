@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <errno.h>
@@ -81,6 +82,7 @@ namespace sf {
                     // new items in the buffer.
                     uint64_t signal = 1;
                     ssize_t result = write(m_event_fd, &signal, sizeof(signal));
+                    m_counter.fetch_add(1, std::memory_order_relaxed);
                     return 0;
                 }
             }
@@ -119,6 +121,59 @@ namespace sf {
                 while(auto *slot = m_buffer.read()) {
                     func(slot);
                     m_buffer.release();
+                    m_counter.fetch_sub(1, std::memory_order_relaxed);
+                }
+            }
+
+            return 0;
+        }
+
+        /*
+         * Wait for the pipe to produce n items and consume them.
+         *
+         * @param n Number of items to wait for.
+         * @param timeout Max time to wait in ms (-1 for infinity).
+         * @param func Consumption function (should be of type void (T *)).
+         * 
+         * @return -1 on failure, 1 on interrupt, 0 on success.
+         */
+        template<typename Func>
+        int wait_n(std::size_t n, int timeout, Func&& func) noexcept {
+            int nfds = epoll_wait(m_epoll_fd, &m_event, 1, timeout);
+            if(nfds < 0) {
+                // Interrupt means we can retry.
+                if(errno == EINTR) {
+                    return 1;
+                }
+
+                // Another error should break.
+                return -1;
+            }
+
+            if(m_event.data.fd == m_event_fd) {
+                // Consume all signals in the event file.
+                uint64_t signals;
+                ssize_t result = read(m_event_fd, &signals, sizeof(signals));
+
+                // Must be at least n items in the buffer.
+                if(m_counter.load(std::memory_order_relaxed) < n) {
+                    return 0;
+                }
+
+                // Consume batches of n items until there are no more batches.
+                while(m_counter.load(std::memory_order_relaxed) >= n) {
+                    for(size_t i = 0; i < n; i++) {
+                        auto *slot = m_buffer.read();
+
+                        // If the slot is null, something went wrong
+                        // and the whole transaction failed.
+                        if(slot == nullptr) return -1;
+
+                        func(slot);
+                        m_buffer.release();
+                    }
+
+                    m_counter.fetch_sub(n, std::memory_order_relaxed);
                 }
             }
 
@@ -130,5 +185,6 @@ namespace sf {
         int m_event_fd = -1;
         int m_epoll_fd = -1;
         struct epoll_event m_event;
+        std::atomic<std::size_t> m_counter{0};
     };
 }
