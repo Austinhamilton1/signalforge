@@ -223,9 +223,7 @@ namespace sf {
 
                                 if(sf::serializer::deserialize(packet, m_recv_buffer.data(), static_cast<std::size_t>(recv_len)) > 0) {
                                     // Insert the packet into the pipe
-                                    pipe.publish([packet](sf::audio_packet_t *slot) {
-                                        *slot = packet;
-                                    });
+                                    pipe.publish(packet);
                                 }
                             }
                         }

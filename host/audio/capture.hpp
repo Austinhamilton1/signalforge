@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <cstring>
 #include <thread>
 
 #include <pipewire-0.3/pipewire/pipewire.h>
@@ -72,7 +71,7 @@ namespace sf {
 
             m_filter = pw_filter_new_simple(
                 pw_main_loop_get_loop(m_loop),
-                "sf_audio_capture",
+                "signal_forge",
                 pw_properties_new(
                     PW_KEY_MEDIA_TYPE, "Audio",
                     PW_KEY_MEDIA_CATEGORY, "Filter",
@@ -105,23 +104,10 @@ namespace sf {
                 0
             );
 
-            m_out_port.pw_port = pw_filter_add_port(
-                m_filter,
-                PW_DIRECTION_OUTPUT,
-                PW_FILTER_PORT_FLAG_MAP_BUFFERS,
-                sizeof(port_t),
-                pw_properties_new(
-                    PW_KEY_FORMAT_DSP, "32 bit float mono audio",
-                    PW_KEY_PORT_NAME, "output",
-                    NULL
-                ),
-                NULL,
-                0
-            );
-
             // Set processing latency information
             spa_process_latency_info latency_info{};
             latency_info.ns = 10 * SPA_NSEC_PER_MSEC;
+            latency_info.rate = static_cast<int32_t>(sample_rate);
 
             params[0] = spa_process_latency_build(
                 &b, SPA_PARAM_ProcessLatency, &latency_info
@@ -203,26 +189,17 @@ namespace sf {
          * stream and outputs it to the pipe.
          */
         void process(struct spa_io_position *position) {
-            float *in, *out;
+            float *in;
             uint32_t n_samples = position->clock.duration;
 
             in = static_cast<float *>(
                 pw_filter_get_dsp_buffer(m_in_port.pw_port, n_samples)
             );
 
-            out = static_cast<float *>(
-                pw_filter_get_dsp_buffer(m_out_port.pw_port, n_samples)
-            );
+            if(in == nullptr) return;
 
-            if(in == nullptr || out == nullptr) return;
-            
-            // Pass through for now to test the filter
-            // This should be changed to capture behavior.
-            for(uint32_t i = 0; i < n_samples; i++) {
-                m_pipe->publish([&in](float *sample) {
-                    *sample = *in++;
-                });
-            }
+            // Capture audio
+            m_pipe->publish_n(in, n_samples);
         }
 
         // Buffer to read/write samples from
@@ -232,7 +209,6 @@ namespace sf {
         struct pw_main_loop *m_loop = nullptr;
         struct pw_filter *m_filter = nullptr;
         port_t m_in_port{};
-        port_t m_out_port{};
 
         std::atomic<bool> m_open{false};
 

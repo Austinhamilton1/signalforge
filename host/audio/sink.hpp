@@ -31,10 +31,7 @@ namespace {
 }
 
 namespace sf {
-    template<std::size_t Frames>
     class audio_sink {
-        static_assert(Frames > 0);
-
     public:
         audio_sink(std::size_t buffer_size = 4096) : m_samples(buffer_size) {}
         ~audio_sink() {
@@ -77,7 +74,7 @@ namespace sf {
 
             m_stream = pw_stream_new_simple(
                 pw_main_loop_get_loop(m_loop),
-                "SignalForge-Audio-Playback",
+                "signal_forge",
                 pw_properties_new(
                     PW_KEY_MEDIA_TYPE, "Audio",
                     PW_KEY_MEDIA_CATEGORY, "Playback",
@@ -177,24 +174,28 @@ namespace sf {
          * Write data to the audio sink to be played.
          *
          * @param samples Data to be played by the sink.
+         * @param count Number of samples to write.
          */
-        void write(const std::array<float, Frames>& samples) noexcept {
-            for(std::size_t i = 0; i < samples.size(); i++) {
+        void write(const float *samples, std::size_t count) noexcept {
+            if(samples == nullptr) return;
+
+            for(std::size_t i = 0; i < count; i++) {
                 auto *sample = m_samples.write();
                 if(!sample) {
                     continue;
                 }
 
                 *sample = samples[i];
-                m_samples.commit();
-                m_sample_count.fetch_add(1, std::memory_order_relaxed);
+                if(m_samples.commit()) {
+                    m_sample_count.fetch_add(1, std::memory_order_relaxed);
+                }
             }
         }
 
     private:
         static void on_process(void *userdata) {
             auto *self =
-                static_cast<sf::audio_sink<Frames> *>(userdata);
+                static_cast<sf::audio_sink *>(userdata);
 
             self->process();
         }

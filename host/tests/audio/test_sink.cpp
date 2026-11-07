@@ -14,7 +14,7 @@ namespace {
 }
 
 int main() {
-    sf::audio_sink<sample_size> sink;
+    sf::audio_sink sink;
 
     std::cout << "Opening audio sink...\n";
     if(sink.open(sample_rate) < 0) {
@@ -40,7 +40,7 @@ int main() {
                     phase -= 2.0 * M_PI;
                 }
             }
-            sink.write(samples);
+            sink.write(samples.data(), sample_size);
             
             deadline += std::chrono::milliseconds(5);
             std::this_thread::sleep_until(deadline);
