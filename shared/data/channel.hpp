@@ -182,14 +182,12 @@ namespace sf {
          * @param *output Pass in this pointer to the consumption function.
          * @param n Number of items to wait for.
          * @param timeout Max time to wait in ms (-1 for infinity).
-         * @param func Consumption function (should be of type void (T *)).
+         * @param func Consumption function (should be of type void (T *, std::size_t)).
          * 
          * @return -1 on failure, 1 on interrupt, 0 on success.
          */
         template<typename Func>
-        int wait_n(T *output, std::size_t n, int timeout, Func&& func) noexcept {
-            if(output == nullptr) return -1;
-
+        int wait_n(std::size_t n, int timeout, Func&& func) noexcept {
             while(m_counter.load(std::memory_order_relaxed) < n) {
                 int nfds = epoll_wait(m_epoll_fd, &m_event, 1, timeout);
                 if(nfds < 0) {
@@ -218,18 +216,22 @@ namespace sf {
             }
 
             // Consume a batch of n items.
-            for(size_t i = 0; i < n; i++) {
-                // Copy data to the output
-                auto *slot = m_buffer.read();
-                if(!slot) return -1;
+            std::size_t accumulator = 0;
+            while(accumulator < n) {
+                block<T> slots = m_buffer.read_block(n - accumulator);
 
-                output[i] = *slot;
+                if(!slots) return -1;
 
-                m_buffer.release();
-                m_counter.fetch_sub(1, std::memory_order_relaxed);
+                func(slots.data, slots.size);
+
+                const std::size_t released =
+                    m_buffer.release_block(slots.size);
+
+                if(released != slots.size) return -1;
+
+                accumulator += slots.size;
+                m_counter.fetch_sub(released, std::memory_order_relaxed);
             }
-            
-            func(output);
 
             return 0;
         }

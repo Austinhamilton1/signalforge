@@ -46,15 +46,12 @@ int main() {
     }
 
     auto produce_audio = std::thread([&] {
-        std::array<float, frame_size> captured_frames;
-
         while(!shutdown_requested.load()) {
             int result = pipe.wait_n(
-                captured_frames.data(),
                 frame_size,
                 5,
-                [&](float *samples) {
-                    sink.write(samples, frame_size);
+                [&](float *samples, std::size_t n) {
+                    sink.write(samples, n);
                 }
             );
 
