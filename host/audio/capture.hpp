@@ -174,6 +174,10 @@ namespace sf {
             pw_deinit();
         }
 
+        uint64_t overflows() const noexcept {
+            return m_overflows.load(std::memory_order_relaxed);
+        }
+
     private:
         static void on_process(void *data, struct spa_io_position *position) {
             auto *self =
@@ -199,7 +203,9 @@ namespace sf {
             if(in == nullptr) return;
 
             // Capture audio
-            m_pipe->publish_n(in, n_samples);
+            if(m_pipe->publish_n(in, n_samples) < 0) {
+                m_overflows.fetch_add(1, std::memory_order_relaxed);
+            }
         }
 
         // Buffer to read/write samples from
@@ -213,5 +219,7 @@ namespace sf {
         std::atomic<bool> m_open{false};
 
         std::thread m_loop_thread;
+
+        std::atomic<uint64_t> m_overflows{0};
     };
 }

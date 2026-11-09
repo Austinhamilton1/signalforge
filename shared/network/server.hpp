@@ -223,7 +223,9 @@ namespace sf {
 
                                 if(sf::serializer::deserialize(packet, m_recv_buffer.data(), static_cast<std::size_t>(recv_len)) > 0) {
                                     // Insert the packet into the pipe
-                                    pipe.publish(packet);
+                                    if(pipe.publish(packet) < 0) {
+                                        m_overflows.fetch_add(1, std::memory_order_relaxed);
+                                    }
                                 }
                             }
                         }
@@ -260,6 +262,10 @@ namespace sf {
             }
         }
 
+        uint64_t overflows() const noexcept {
+            return m_overflows.load(std::memory_order_relaxed);
+        }
+
     private:
         bool make_socket_nonblocking(int fd) {
             int flags = fcntl(fd, F_GETFL, 0);
@@ -280,5 +286,6 @@ namespace sf {
         std::vector<uint8_t> m_send_buffer;
 
         std::atomic<bool> m_running{false};
+        std::atomic<uint64_t> m_overflows{0};
     };
 }

@@ -194,6 +194,8 @@ namespace sf {
                 (now - m_next_deadline) / m_packet_period;
 
             if(late_periods > 0) {
+                m_late_periods += late_periods;
+
                 m_expected_sequence += 
                     static_cast<uint32_t>(late_periods);
 
@@ -276,6 +278,10 @@ namespace sf {
             m_next_deadline = time_point_t{};
         }
 
+        uint64_t late_periods() const noexcept {
+            return m_late_periods;
+        }
+
     private:
         struct slot_t {
             packet_t packet{};
@@ -348,5 +354,7 @@ namespace sf {
     
         bool m_have_base = false;
         bool m_playing = false;
+        
+        uint64_t m_late_periods = 0;
     };
 }

@@ -23,6 +23,10 @@ namespace sf {
                 throw std::system_error(errno, std::generic_category(), "Failed to create eventfd");
             }
 
+            if((m_close_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) < 0) {
+                throw std::system_error(errno, std::generic_category(), "Failed to create close eventfd");
+            }
+
             if((m_epoll_fd = epoll_create1(0)) < 0) {
                 throw std::system_error(errno, std::generic_category(), "Failed to create epoll");
             }
@@ -34,11 +38,23 @@ namespace sf {
             if(epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_event_fd, &ev) < 0) {
                 throw std::system_error(errno, std::generic_category(), "Failed to register eventfd");
             }
+
+            struct epoll_event close_ev;
+            close_ev.events = EPOLLIN;
+            close_ev.data.fd = m_close_fd;
+
+            if(epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_close_fd,  &close_ev) < 0) {
+                throw std::system_error(errno, std::generic_category(), "Failed to register close eventfd");
+            }
         }
 
         ~channel() {
             if(m_event_fd >= 0) {
                 close(m_event_fd);
+            }
+
+            if(m_close_fd >= 0) {
+                close(m_close_fd);
             }
 
             if(m_epoll_fd >= 0) {
@@ -58,6 +74,17 @@ namespace sf {
          */
         int fd() noexcept {
             return m_event_fd;
+        }
+
+        /*
+         * Close the channel and signal any waiting threads
+         * to wake up.
+         */
+        void stop() noexcept {
+            m_closed.store(true, std::memory_order_relaxed);
+
+            uint64_t signal = 1;
+            ssize_t result = write(m_close_fd, &signal, sizeof(signal));
         }
 
         /*
@@ -144,6 +171,10 @@ namespace sf {
          */
         template<typename Func>
         int wait(int timeout, Func&& func) noexcept {
+            if(m_closed.load(std::memory_order_relaxed)) {
+                return -1; // Do not wait for closed channel
+            }
+
             // Sleep until an item populates the buffer or the timeout occurs.
             int nfds = epoll_wait(m_epoll_fd, &m_event, 1, timeout);
             if(nfds < 0) {
@@ -158,6 +189,15 @@ namespace sf {
 
             if(nfds == 0) {
                 return 1; // Timeout
+            }
+
+            if(m_event.data.fd == m_close_fd) {
+                uint64_t signals;
+                ssize_t result = read(m_close_fd, &signals, sizeof(signals));
+
+                m_closed.store(true, std::memory_order_relaxed);
+
+                return -1;
             }
 
             if(m_event.data.fd == m_event_fd) {
@@ -188,6 +228,10 @@ namespace sf {
          */
         template<typename Func>
         int wait_n(std::size_t n, int timeout, Func&& func) noexcept {
+            if(m_closed.load(std::memory_order_relaxed)) {
+                return -1; // Do not wait for closed channel
+            }
+
             while(m_counter.load(std::memory_order_relaxed) < n) {
                 int nfds = epoll_wait(m_epoll_fd, &m_event, 1, timeout);
                 if(nfds < 0) {
@@ -202,6 +246,15 @@ namespace sf {
 
                 if(nfds == 0) {
                     return 1; // Timeout
+                }
+
+                if(m_event.data.fd == m_close_fd) {
+                    uint64_t signals;
+                    ssize_t result = read(m_close_fd, &signals, sizeof(signals));
+
+                    m_closed.store(true, std::memory_order_relaxed);
+
+                    return -1;
                 }
 
                 if(m_event.data.fd == m_event_fd) {
@@ -239,8 +292,10 @@ namespace sf {
     private:
         zc_spsc<T> m_buffer;
         int m_event_fd = -1;
+        int m_close_fd = -1;
         int m_epoll_fd = -1;
         struct epoll_event m_event;
         std::atomic<std::size_t> m_counter{0};
+        std::atomic<bool> m_closed{false};
     };
 }

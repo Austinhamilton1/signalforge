@@ -182,6 +182,7 @@ namespace sf {
             for(std::size_t i = 0; i < count; i++) {
                 auto *sample = m_samples.write();
                 if(!sample) {
+                    m_overflows.fetch_add(1, std::memory_order_relaxed);
                     continue;
                 }
 
@@ -190,6 +191,14 @@ namespace sf {
                     m_sample_count.fetch_add(1, std::memory_order_relaxed);
                 }
             }
+        }
+
+        uint64_t overflows() const noexcept {
+            return m_overflows.load(std::memory_order_relaxed);
+        }
+
+        uint64_t underflows() const noexcept {
+            return m_underflows.load(std::memory_order_relaxed);
         }
 
     private:
@@ -248,6 +257,7 @@ namespace sf {
                 int missing_samples = n_frames - n_samples;
                 if(missing_samples > 0) {
                     std::fill(dst, dst + missing_samples, 0.0f);
+                    m_underflows.fetch_add(missing_samples, std::memory_order_relaxed);
                 }
             }
 
@@ -270,5 +280,8 @@ namespace sf {
         std::atomic<uint64_t> m_sample_count{0};
 
         std::thread m_loop_thread;
+
+        std::atomic<uint64_t> m_overflows{0};
+        std::atomic<uint64_t> m_underflows{0};
     };
 }

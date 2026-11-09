@@ -1,6 +1,7 @@
 #include <atomic>
 #include <csignal>
 #include <iostream>
+#include <pthread.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -96,14 +97,6 @@ namespace {
     }
 }
 
-std::atomic<bool> shutdown_requested{false};
-
-extern "C" void signal_handler(int signal) {
-    if(signal == SIGTERM || signal == SIGINT) {
-        shutdown_requested.store(true);
-    }
-}
-
 int main(int argc, char *argv[]) {
     sf_args args;
 
@@ -119,11 +112,11 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::signal(SIGTERM, signal_handler);
-    std::signal(SIGINT, signal_handler);
-
     sf::server server;
     sf::channel<sf::audio_packet_t> pipe(32);
+    std::atomic<bool> shutdown_requested{false};
+    uint64_t n_backend_sent = 0;
+    uint64_t n_backend_received = 0;
 
     std::cout << "Initializing server...\n";
     if(server.init() < 0) {
@@ -131,20 +124,48 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    sigset_t signals;
+
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGINT);
+    sigaddset(&signals, SIGTERM);
+
+    pthread_sigmask(SIG_BLOCK, &signals, nullptr);
+
     auto copy_audio_thread = std::thread([&] {
         server.wait();
 
         while(!shutdown_requested.load()) {
             // Send all packets directly back to the sender.
             pipe.wait(-1, [&](sf::audio_packet_t *packet) {
-                server.send(args.remote_addr.c_str(), args.remote_port, *packet);
+                n_backend_received++;
+                if(server.send(args.remote_addr.c_str(), args.remote_port, *packet) > 0) {
+                    n_backend_sent++;
+                }
             });
         }
-
-        server.stop();
     });
 
-    server.listen(args.host_port, pipe);
+    auto server_thread = std::thread([&] {
+        server.listen(args.host_port, pipe);
+    });
+
+    int signal = 0;
+    sigwait(&signals, &signal);
+    shutdown_requested.store(true);
+
+    server.stop();
+    std::cout << "Server closed.\n";
+
+    pipe.stop();
+    std::cout << "Pipes closed.\n";
 
     copy_audio_thread.join();
+    server_thread.join();
+
+    // std::cout << "Server overflows: " << server.overflows() << std::endl;
+    // std::cout << "Server received: " << n_backend_received << std::endl;
+    // std::cout << "Server sent: " << n_backend_sent << std::endl;
+
+    return 0;
 }

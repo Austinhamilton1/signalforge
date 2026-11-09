@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <pthread.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -144,14 +145,6 @@ namespace {
     }
 }
 
-std::atomic<bool> shutdown_requested{false};
-
-extern "C" void signal_handler(int signal) {
-    if(signal == SIGTERM || signal == SIGINT) {
-        shutdown_requested.store(true);
-    }
-}
-
 int main(int argc, char *argv[]) {
     sf_args args;
 
@@ -167,14 +160,26 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::signal(SIGTERM, signal_handler);
-    std::signal(SIGINT, signal_handler);
-
     sf::audio_capture capture;
     sf::audio_sink sink;
     sf::channel<float> capture_pipe(4096);
     sf::server server;
     sf::channel<sf::audio_packet_t> server_pipe(128);
+    std::atomic<bool> shutdown_requested{false};
+
+    uint64_t accepted_count = 0;
+    uint64_t duplicate_count = 0;
+    uint64_t too_old_count = 0;
+    uint64_t too_far_ahead_count = 0;
+    uint64_t collision_count = 0;
+
+    uint64_t audio_count = 0;
+    uint64_t concealed_count = 0;
+    uint64_t buffering_count = 0;
+    uint64_t not_due_count = 0;
+
+    uint64_t n_host_sent = 0;
+    uint64_t n_host_received = 0;
 
     std::cout << "Initializing server...\n";
     if(server.init() < 0) {
@@ -194,6 +199,14 @@ int main(int argc, char *argv[]) {
         sink.close();
         return 1;
     }
+
+    sigset_t signals;
+
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGINT);
+    sigaddset(&signals, SIGTERM);
+
+    pthread_sigmask(SIG_BLOCK, &signals, nullptr);
 
     // The audio capture thread should capture a packet worth of data and then send
     // it to the remote address (device).
@@ -218,15 +231,14 @@ int main(int argc, char *argv[]) {
             });
 
             // 2. Send the packet to the remote address.
-            server.send(args.remote_addr.c_str(), args.remote_port, packet);
+            if(server.send(args.remote_addr.c_str(), args.remote_port, packet) > 0) {
+                n_host_sent++;
+            }
 
             // 3. Update next packet sequence and timestamp.
             packet.header.seq += 1;
             packet.header.timestamp += frames; 
         }
-
-        // Stop the server once the main program is shut down
-        server.stop();
     });
 
     // The audio playback thread is responsible for playing audio coming back to the server.
@@ -235,7 +247,7 @@ int main(int argc, char *argv[]) {
         // Wait for the server to start playing audio.
         server.wait();
 
-        jitter_buf_t buf(args.sample_rate);
+        jitter_buf_t buf(args.sample_rate, 12);
         jitter_buf_t::packet_t jitter_packet{};
         std::array<float, frames> samples{};
 
@@ -256,7 +268,29 @@ int main(int argc, char *argv[]) {
                     jitter_packet.samples.data()
                 );
 
-                auto _ = buf.insert(jitter_packet);
+                switch(buf.insert(jitter_packet)) {
+                    case jitter_buf_t::insert_result_t::accepted:
+                        accepted_count++;
+                        break;
+
+                    case jitter_buf_t::insert_result_t::duplicate:
+                        duplicate_count++;
+                        break;
+
+                    case jitter_buf_t::insert_result_t::too_old:
+                        too_old_count++;
+                        break;
+
+                    case jitter_buf_t::insert_result_t::too_far_ahead:
+                        too_far_ahead_count++;
+                        break;
+
+                    case jitter_buf_t::insert_result_t::slot_collision:
+                        collision_count++;
+                        break;
+                }
+
+                n_host_received++;
             });
 
             auto result = buf.playout(
@@ -265,26 +299,71 @@ int main(int argc, char *argv[]) {
             );
 
             switch(result) {
-                case jitter_buf_t::playout_result_t::audio:
                 case jitter_buf_t::playout_result_t::concealed:
+                    concealed_count++;
+                    sink.write(samples.data(), samples.size());
+                    break;
+                case jitter_buf_t::playout_result_t::audio:
+                    audio_count++;
                     sink.write(samples.data(), samples.size());
                     break;
 
                 case jitter_buf_t::playout_result_t::buffering:
+                    buffering_count++;
+                    break;
                 case jitter_buf_t::playout_result_t::not_due:
+                    not_due_count++;
                     break;
             }
         }
+
+        // std::cout << "Jitter buffer late periods: " << buf.late_periods() << std::endl;
     });
 
-    // Main thread should just manage the server.
-    server.listen(args.host_port, server_pipe);
+    auto server_thread = std::thread([&] {
+        server.listen(args.host_port, server_pipe);
+    });
+
+    // Main thread should manage lifecycles
+    int signal = 0;
+    sigwait(&signals, &signal);
+    shutdown_requested.store(true);
+
+    server.stop();
+    std::cout << "Server stopped.\n";
+
+    server_pipe.stop();
+    capture_pipe.stop();
+    std::cout << "Pipes closed.\n";
 
     audio_capture_thread.join();
     audio_playback_thread.join();
+    server_thread.join();
     
     capture.close();
+    std::cout << "Audio capture closed.\n";
+
     sink.close();
+    std::cout << "Audio sink closed.\n";
+
+    // std::cout << "Audio capture overflows: " << capture.overflows() << std::endl;
+    // std::cout << "Audio sink overflows: " << sink.overflows() << std::endl;
+    // std::cout << "Audio sink underflows: " << sink.underflows() << std::endl;
+    // std::cout << "Server overflows: " << server.overflows() << std::endl;
+    
+    // std::cout << "Accepted count: " << accepted_count << std::endl;
+    // std::cout << "Duplicate count: " << duplicate_count << std::endl;
+    // std::cout << "Too old count: " << too_old_count << std::endl;
+    // std::cout << "Too far ahead count: " << too_far_ahead_count << std::endl;
+    // std::cout << "Collision count: " << collision_count << std::endl;
+    
+    // std::cout << "Audio count: " << audio_count << std::endl;
+    // std::cout << "Concealed count: " << concealed_count << std::endl;
+    // std::cout << "Buffering count: " << buffering_count << std::endl;
+    // std::cout << "Not due count: " << not_due_count << std::endl;
+
+    // std::cout << "Host sent: " << n_host_sent << std::endl;
+    // std::cout << "Host received: " << n_host_received << std::endl;
 
     return 0;
 }
