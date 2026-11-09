@@ -29,25 +29,27 @@ namespace {
         int host_port = 8080;
         int remote_port = 8080;
         uint32_t sample_rate = 48'000;
+        int buffer_delay = 60;
         std::string remote_addr = "";
         std::string error = "";
     };
 
     void usage() {
-        std::cout << "=====================================================================\n";
+        std::cout << "===========================================================================\n";
         std::cout << "Usage: signalforge [options] [device IP]\n";
         std::cout << "Options:\n";
-        std::cout << "    -h                Print usage\n";
-        std::cout << "    -s <port>         Specify source port (default 8080)\n";
-        std::cout << "    -d <port>         Specify destination port (default 8080)\n";
-        std::cout << "    -r <sample_rate>  Specify audio sample rate in Hz (default 48000)\n";
-        std::cout << "=====================================================================\n";
+        std::cout << "    -h                    Print usage\n";
+        std::cout << "    -s <port>             Specify source port (default 8080)\n";
+        std::cout << "    -d <port>             Specify destination port (default 8080)\n";
+        std::cout << "    -r <sample_rate>      Specify audio sample rate in Hz (default 48000)\n";
+        std::cout << "    -b <startup_delay>    Specify packet buffering delay in ms (default 60)\n";
+        std::cout << "===========================================================================\n";
     }
 
     int parse_args(int argc, char **argv, sf_args& args) {
         int opt;
 
-        while((opt = getopt(argc, argv, "hs:d:r:")) != -1) {
+        while((opt = getopt(argc, argv, "hs:d:r:b:")) != -1) {
             switch(opt) {
                 case 'h':
                     args.print_usage = true;
@@ -73,6 +75,14 @@ namespace {
                         args.sample_rate = static_cast<uint32_t>(std::stoi(optarg));
                     } catch(const std::exception&) {
                         std::cerr << "Error: -s requires a valid integer argument\n";
+                        return -1;
+                    }
+                    break;
+                case 'b':
+                    try {
+                        args.buffer_delay = std::stoi(optarg);
+                    } catch(const std::exception&) {
+                        std::cerr << "Error: -b requires a valid integer argument\n";
                         return -1;
                     }
                     break;
@@ -111,6 +121,11 @@ namespace {
 
         if(args.sample_rate == 0) {
             args.error = "Invalid sample rate";
+            return false;
+        }
+
+        if(args.buffer_delay <= 0) {
+            args.error = "Invalid buffer delay";
             return false;
         }
 
@@ -160,11 +175,18 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int startup_packets = (
+        args.buffer_delay * args.sample_rate
+    ) / (
+        1000 * frames
+    );
+
     sf::audio_capture capture;
     sf::audio_sink sink;
     sf::channel<float> capture_pipe(4096);
     sf::server server;
     sf::channel<sf::audio_packet_t> server_pipe(128);
+    jitter_buf_t jitter_buf(args.sample_rate, startup_packets);
     std::atomic<bool> shutdown_requested{false};
 
     uint64_t accepted_count = 0;
@@ -247,12 +269,11 @@ int main(int argc, char *argv[]) {
         // Wait for the server to start playing audio.
         server.wait();
 
-        jitter_buf_t buf(args.sample_rate, 12);
         jitter_buf_t::packet_t jitter_packet{};
         std::array<float, frames> samples{};
 
         while(!shutdown_requested.load()) {
-            int timeout = timeout_ms(buf);
+            int timeout = timeout_ms(jitter_buf);
 
             server_pipe.wait(timeout, [&](sf::audio_packet_t *packet) {
                 jitter_packet.seq = packet->header.seq;
@@ -268,7 +289,7 @@ int main(int argc, char *argv[]) {
                     jitter_packet.samples.data()
                 );
 
-                switch(buf.insert(jitter_packet)) {
+                switch(jitter_buf.insert(jitter_packet)) {
                     case jitter_buf_t::insert_result_t::accepted:
                         accepted_count++;
                         break;
@@ -293,7 +314,7 @@ int main(int argc, char *argv[]) {
                 n_host_received++;
             });
 
-            auto result = buf.playout(
+            auto result = jitter_buf.playout(
                 jitter_buf_t::clock_t::now(),
                 samples
             );
