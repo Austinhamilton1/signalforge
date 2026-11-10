@@ -13,17 +13,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-include(FetchContent)
-
-# =========================================================
-# Dependencies: Catch2
-# =========================================================
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY  https://github.com/catchorg/Catch2.git
-    GIT_TAG         v3.4.0
-)
-FetchContent_MakeAvailable(Catch2)
+add_subdirectory(external/Catch2)
 
 # =========================================================
 # Subdirectories
